@@ -49,7 +49,7 @@ async def search_similar_images(years: List[int] = Query(...), file: UploadFile 
     Upload a query image to find the top 3 most similar images.
     Returns a JSON response with similarity scores and filenames.
     """
-    query_dir = os.path.join("backend", "data", "images", "query")
+    query_dir = os.path.join("data", "images", "query")
     os.makedirs(query_dir, exist_ok=True)
     # save query image 
     query_path = os.path.join(query_dir, file.filename)
@@ -87,7 +87,7 @@ async def generate_analysis_report(years: List[int] = Query(...), file: UploadFi
     - Generates a summary with OpenAI's GPT-4o.
     - Creates and returns a PDF file.
     """
-    query_dir = os.path.join("backend", "data", "images", "query")
+    query_dir = os.path.join("data", "images", "query")
     os.makedirs(query_dir, exist_ok=True)
     
     query_path = os.path.join(query_dir, file.filename)

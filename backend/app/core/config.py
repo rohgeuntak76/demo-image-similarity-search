@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     VLM_MODEL_NAME: Optional[str] = "Qwen/Qwen2-VL-8B-Instruct"
 
     # File paths and directories
-    FONT_PATH: str = "backend/data/fonts/NanumGothic.ttf"
-    BASE_INDEX_DIR: str = "backend/data/assets"
-    INDEXED_IMAGE_DIR: str = "backend/data/images/indexed"
+    FONT_PATH: str = "data/fonts/NanumGothic.ttf"
+    BASE_INDEX_DIR: str = "data/assets"
+    INDEXED_IMAGE_DIR: str = "data/images/indexed"
 
     class Config:
         env_file = ".env"
