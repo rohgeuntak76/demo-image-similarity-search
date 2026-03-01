@@ -3,4 +3,5 @@ inputs/
 __pycache__/
 backend/data/assets/
 backend/data/images/
+.vscode/
 # .env/

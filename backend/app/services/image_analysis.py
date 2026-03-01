@@ -20,7 +20,7 @@ class ImageAnalysisService:
         self.model = self._load_model()
         
         # Ensure data directories exist
-        os.makedirs(os.path.dirname(settings.INDEX_PATH), exist_ok=True)
+        # os.makedirs(os.path.dirname(settings.INDEX_PATH), exist_ok=True) # No longer needed, year-specific directories are created in create_index
         os.makedirs(settings.INDEXED_IMAGE_DIR, exist_ok=True)
 
     def _get_transform(self):
@@ -43,7 +43,7 @@ class ImageAnalysisService:
             feat = self.model(input_tensor).squeeze().cpu().numpy()
         return feat
 
-    def create_index(self, image_paths: List[str]):
+    def create_index(self, image_paths: List[str], year: int):
         embeddings = []
         for path in image_paths:
             emb = self.extract_embedding(path)
@@ -54,16 +54,29 @@ class ImageAnalysisService:
         index = faiss.IndexFlatL2(embeddings.shape[1])
         index.add(embeddings)
         
-        faiss.write_index(index, settings.INDEX_PATH)
-        np.save(settings.EMBEDDINGS_PATH, embeddings)
-        np.save(settings.NAMES_PATH, np.array(image_paths))
+        # Construct paths with year-specific directory
+        year_index_dir = os.path.join(settings.BASE_INDEX_DIR, str(year))
+        os.makedirs(year_index_dir, exist_ok=True) # Ensure year directory exists
 
-    def search_similar(self, query_image_path: str, k: int = 3) -> Tuple[List[float], List[str]]:
-        if not os.path.exists(settings.INDEX_PATH):
-            raise FileNotFoundError("FAISS index not found. Please create it first.")
+        index_file_path = os.path.join(year_index_dir, f"index.faiss")
+        embeddings_file_path = os.path.join(year_index_dir, f"embeddings.npy")
+        names_file_path = os.path.join(year_index_dir, f"names.npy")
 
-        index = faiss.read_index(settings.INDEX_PATH)
-        names = np.load(settings.NAMES_PATH)
+        faiss.write_index(index, index_file_path)
+        np.save(embeddings_file_path, embeddings)
+        np.save(names_file_path, np.array(image_paths))
+
+    def search_similar(self, query_image_path: str, year: int, k: int = 3) -> Tuple[List[float], List[str]]:
+        # Construct paths with year-specific directory
+        year_index_dir = os.path.join(settings.BASE_INDEX_DIR, str(year))
+        index_file_path = os.path.join(year_index_dir, f"index.faiss")
+        names_file_path = os.path.join(year_index_dir, f"names.npy")
+
+        if not os.path.exists(index_file_path):
+            raise FileNotFoundError(f"FAISS index for year '{year}' not found. Please create it first.")
+
+        index = faiss.read_index(index_file_path)
+        names = np.load(names_file_path)
         
         query_vec = self.extract_embedding(query_image_path).reshape(1, -1).astype("float32")
         distances, indices = index.search(query_vec, k)
