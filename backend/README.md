@@ -96,9 +96,9 @@ Access the interactive API documentation at `http://127.0.0.1:8000/docs`.
 -   **`GET /index/available`**: Returns a list of years for which indices have been created.
 -   **`POST /search`**: Upload a query image to find the top 3 most similar images across specified years.
     *   **Parameters**: `years` (query parameter, list of integers) - The years to search within.
--   **`POST /report/generate`**: Upload a query image to generate a PDF analysis report using the configured VLM, searching across specified years.
+-   **`POST /report/generate`**: Generate a full PDF analysis report using specific search results provided by the frontend.
     *   **Parameters**: 
-        *   `years` (query parameter, list of integers) - The years to include in the search.
         *   `file` (multipart form-data) - The query image file.
         *   `prompt` (multipart form-data, optional) - Custom prompt for the VLM analysis.
+        *   `similar_images_json` (multipart form-data) - JSON string containing list of similar image objects (filename, year, similarity).
 
