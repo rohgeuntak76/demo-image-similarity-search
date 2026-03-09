@@ -1,27 +1,33 @@
 # Image Similarity Search Monorepo
 
-This repository contains both the backend API for image similarity search and a placeholder for the frontend application.
+This repository contains a full-stack application for searching similar weather charts and generating AI-powered analysis reports. It leverages ResNet-50 for feature extraction, FAISS for efficient similarity searching, and a Vision Language Model (VLM) for expert report generation.
 
-## Structure
+## Project Structure
 
--   `backend/`: Contains the FastAPI application, logic for image analysis, indexing, and reporting. Refer to `backend/README.md` for detailed setup and API documentation.
--   `frontend/`: Contains the Streamlit-based frontend application for interacting with the backend API. Refer to `frontend/README.md` for detailed setup and usage instructions.
+-   **`backend/`**: A FastAPI-based REST API that handles image embedding, FAISS indexing, similarity searching, and PDF report generation using a locally deployed VLM.
+-   **`frontend/`**: A Streamlit-based web dashboard that provides an intuitive interface for managing indexes, previewing similar images, and interactive report generation.
 
 ## Getting Started
 
-To set up and run the backend, navigate to the `backend/` directory and follow the instructions in its `README.md`.
-
+### 1. Backend Setup
+Navigate to the `backend/` directory to set up the API and configure your VLM environment.
 ```bash
 cd backend
-# Follow instructions in backend/README.md
+# Refer to backend/README.md for detailed instructions
 ```
 
-## Development
+### 2. Frontend Setup
+Navigate to the `frontend/` directory to set up the web dashboard.
+```bash
+cd frontend
+# Refer to frontend/README.md for detailed instructions
+```
 
-### Backend
+## Docker Deployment
 
-For backend development, work within the `backend/` directory.
+Both components are Dockerized for consistent deployment across environments. You can build and run them individually or use them as part of a larger containerized stack.
 
-### Frontend
+- **Backend**: `docker build -t image-search-backend backend/`
+- **Frontend**: `docker build -t image-search-frontend frontend/`
 
-For frontend development, work within the `frontend/` directory.
+Refer to the respective `README.md` files in each directory for specific Docker run commands and environment variable configurations.
