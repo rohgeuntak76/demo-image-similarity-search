@@ -110,7 +110,13 @@ async def search_similar_images(years: List[int] = Query(...), file: UploadFile 
             try:
                 similarities, similar_paths = image_analysis_service.search_similar(query_path, year)
                 for path, sim in zip(similar_paths, similarities):
-                    all_results.append(SearchResult(filename=os.path.basename(path), similarity=sim, year=year))
+                    img_b64 = image_analysis_service.image_to_base64(path)
+                    all_results.append(SearchResult(
+                        filename=os.path.basename(path), 
+                        similarity=sim, 
+                        year=year,
+                        image_base64=img_b64
+                    ))
             except FileNotFoundError as e:
                 # Log the error or handle it as appropriate, for now, we'll just skip this year
                 print(f"Skipping year {year} due to: {e}")

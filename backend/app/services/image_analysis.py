@@ -121,6 +121,12 @@ class ImageAnalysisService:
         
         return similarity_percent, similar_paths
 
+    def image_to_base64(self, image_path: str) -> str:
+        img = Image.open(image_path).convert("RGB")
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
     def generate_vlm_summary(self, query_path: str, similar_paths: List[str], similarities: List[float], user_prompt: str = None) -> str:
         if user_prompt:
             summary_prompt = user_prompt
@@ -141,14 +147,8 @@ class ImageAnalysisService:
             Please write the report in Korean at an expert level, using clear sections or tables.
             """
 
-        def image_to_base64(image_path):
-            img = Image.open(image_path).convert("RGB")
-            buffered = BytesIO()
-            img.save(buffered, format="PNG")
-            return base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-        query_img_b64 = image_to_base64(query_path)
-        similar_imgs_b64 = [image_to_base64(p) for p in similar_paths]
+        query_img_b64 = self.image_to_base64(query_path)
+        similar_imgs_b64 = [self.image_to_base64(p) for p in similar_paths]
 
         messages = [
             {
