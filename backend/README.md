@@ -69,7 +69,7 @@ OPENAI_API_KEY="YOUR_OPENAI_API_KEY_HERE"
 
 # --- For Local vLLM Server ---
 # VLM_BASE_URL="http://localhost:8000/v1"
-# VLM_MODEL_NAME="Qwen/Qwen2-VL-8B-Instruct"
+# VLM_MODEL_NAME="Qwen/Qwen3-VL-8B-Instruct"
 
 # --- Asset Paths ---
 FONT_PATH="data/fonts/NanumGothic.ttf"
@@ -84,6 +84,21 @@ uvicorn app.main:app --reload
 ```
 
 The API will be available at `http://127.0.0.1:8000`.
+
+## Docker Setup
+
+To build and run the backend using Docker:
+
+1.  **Build the Image**:
+    ```bash
+    docker build -t image-search-backend .
+    ```
+
+2.  **Run the Container**:
+    ```bash
+    docker run -p 8000:8000 --env-file .env image-search-backend
+    ```
+    *Note: Ensure your `.env` file is correctly configured before running.*
 
 ## API Endpoints
 
