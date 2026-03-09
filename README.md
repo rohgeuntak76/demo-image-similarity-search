@@ -5,7 +5,7 @@ This repository contains both the backend API for image similarity search and a 
 ## Structure
 
 -   `backend/`: Contains the FastAPI application, logic for image analysis, indexing, and reporting. Refer to `backend/README.md` for detailed setup and API documentation.
--   `frontend/`: This directory is a placeholder for the future frontend application. Refer to `frontend/README.md` (once created) for frontend-specific documentation.
+-   `frontend/`: Contains the Streamlit-based frontend application for interacting with the backend API. Refer to `frontend/README.md` for detailed setup and usage instructions.
 
 ## Getting Started
 
