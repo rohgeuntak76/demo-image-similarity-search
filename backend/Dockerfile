@@ -8,6 +8,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download the ResNet-50 model weights
+RUN python3 -c 'import torchvision.models as models; models.resnet50(weights="ResNet50_Weights.DEFAULT")'
+
 # Copy the current directory contents into the container at /app
 COPY app /app/app
 COPY data /app/data
