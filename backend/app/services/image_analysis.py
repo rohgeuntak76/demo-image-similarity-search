@@ -66,6 +66,39 @@ class ImageAnalysisService:
         np.save(embeddings_file_path, embeddings)
         np.save(names_file_path, np.array(image_paths))
 
+    def update_index(self, image_paths: List[str], year: int):
+        year_index_dir = os.path.join(settings.BASE_INDEX_DIR, str(year))
+        index_file_path = os.path.join(year_index_dir, "index.faiss")
+        embeddings_file_path = os.path.join(year_index_dir, "embeddings.npy")
+        names_file_path = os.path.join(year_index_dir, "names.npy")
+
+        if not os.path.exists(index_file_path):
+            return self.create_index(image_paths, year)
+
+        # Load existing index and metadata
+        index = faiss.read_index(index_file_path)
+        existing_embeddings = np.load(embeddings_file_path)
+        existing_names = np.load(names_file_path).tolist()
+
+        new_embeddings = []
+        for path in image_paths:
+            emb = self.extract_embedding(path)
+            new_embeddings.append(emb)
+        
+        new_embeddings = np.vstack(new_embeddings).astype("float32")
+        
+        # Update FAISS index
+        index.add(new_embeddings)
+        
+        # Combine with existing metadata
+        combined_embeddings = np.vstack([existing_embeddings, new_embeddings])
+        existing_names.extend(image_paths)
+        
+        # Save updated data
+        faiss.write_index(index, index_file_path)
+        np.save(embeddings_file_path, combined_embeddings)
+        np.save(names_file_path, np.array(existing_names))
+
     def search_similar(self, query_image_path: str, year: int, k: int = 3) -> Tuple[List[float], List[str]]:
         # Construct paths with year-specific directory
         year_index_dir = os.path.join(settings.BASE_INDEX_DIR, str(year))

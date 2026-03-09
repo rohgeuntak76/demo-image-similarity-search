@@ -10,38 +10,56 @@ from app.core.config import settings
 
 app = FastAPI(title="Image Similarity Search API")
 
-@app.post("/index", status_code=201)
+def save_uploaded_images(files: List[UploadFile], year: int) -> List[str]:
+    """Helper to save uploaded images to a year-specific directory."""
+    year_img_dir = os.path.join(settings.INDEXED_IMAGE_DIR, str(year))
+    os.makedirs(year_img_dir, exist_ok=True)
+    image_paths = []
+    for file in files:
+        file_path = os.path.join(year_img_dir, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        image_paths.append(file_path)
+    return image_paths
+
+@app.post("/index/create", status_code=201)
 async def create_index(year: int, files: List[UploadFile] = File(...)):
     """
-    Upload multiple images to build the search index for a specific year.
+    Delete pre-existing index and create from scratch for a specific year.
     - Clears the existing indexed images and assets for the given year.
     - Saves the new images.
     - Creates and saves a new FAISS index for the year.
     """
-    # Clear previous data
-    if os.path.exists(settings.INDEXED_IMAGE_DIR):
-        shutil.rmtree(settings.INDEXED_IMAGE_DIR)
-    os.makedirs(settings.INDEXED_IMAGE_DIR)
-    
+    # Clear previous assets (index, embeddings, names)
     year_index_dir = os.path.join(settings.BASE_INDEX_DIR, str(year))
     if os.path.exists(year_index_dir):
         shutil.rmtree(year_index_dir)
-    os.makedirs(year_index_dir, exist_ok=True)
-
-    image_paths = []
-    # Read and save input images
-    for file in files:
-        file_path = os.path.join(settings.INDEXED_IMAGE_DIR, file.filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        image_paths.append(file_path)
+    
+    # Clear previous images for this year
+    year_img_dir = os.path.join(settings.INDEXED_IMAGE_DIR, str(year))
+    if os.path.exists(year_img_dir):
+        shutil.rmtree(year_img_dir)
+    
+    image_paths = save_uploaded_images(files, year)
     
     try:
-        # create_index() will save FAISS index in settings.INDEX_PATH, embeddings in settings.EMBEDDINGS_PATH, file name in settings.NAMES_PATH
         image_analysis_service.create_index(image_paths, year)
-        return {"message": f"{len(image_paths)} images indexed successfully."}
+        return {"message": f"Index for year {year} created with {len(image_paths)} images."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create index: {e}")
+
+@app.post("/index/update", status_code=200)
+async def update_index(year: int, files: List[UploadFile] = File(...)):
+    """
+    Append uploaded images into existing FAISS index for a specific year.
+    """
+    image_paths = save_uploaded_images(files, year)
+    
+    try:
+        image_analysis_service.update_index(image_paths, year)
+        return {"message": f"Index for year {year} updated with {len(image_paths)} images."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update index: {e}")
 
 @app.post("/search", response_model=SearchResponse)
 async def search_similar_images(years: List[int] = Query(...), file: UploadFile = File(...)):

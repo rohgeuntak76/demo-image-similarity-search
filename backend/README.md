@@ -89,8 +89,10 @@ The API will be available at `http://127.0.0.1:8000`.
 
 Access the interactive API documentation at `http://127.0.0.1:8000/docs`.
 
--   **`POST /index`**: Upload multiple images to build the search index for a specific year.
+-   **`POST /index/create`**: Deletes pre-existing index and creates from scratch for a specific year.
     *   **Parameters**: `year` (query parameter, integer) - The year for which to create the index.
+-   **`POST /index/update`**: Appends uploaded images into an existing FAISS index for a specific year.
+    *   **Parameters**: `year` (query parameter, integer) - The year for which to update the index.
 -   **`POST /search`**: Upload a query image to find the top 3 most similar images across specified years.
     *   **Parameters**: `years` (query parameter, list of integers) - The years to search within.
 -   **`POST /generate-report`**: Upload a query image to generate a PDF analysis report using the configured VLM, searching across specified years.
