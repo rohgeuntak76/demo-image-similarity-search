@@ -1,32 +1,46 @@
-# Frontend Application
+# Image Similarity Search Frontend
 
-This directory contains the Streamlit-based frontend application for the Image Similarity Search project. It provides a user interface to interact with the backend API, allowing you to create FAISS indexes and generate analysis reports.
+This is a Streamlit-based web interface for the Image Similarity Search API. It allows users to manage FAISS indexes and generate detailed AI-powered weather chart analysis reports.
 
-## Setup
+## Features
 
-1.  Navigate into the `frontend/` directory:
-    ```bash
-    cd frontend
-    ```
-2.  Install the required Python dependencies:
+-   **FAISS Index Management**: Create or update image search indexes for specific years.
+-   **2-Step Report Generation**:
+    1.  **Search & Preview**: Upload a query image and preview the top 3 similar charts from the database.
+    2.  **Interactive Analysis**: Review and edit the AI prompt, then generate a PDF report with VLM (Vision Language Model) analysis.
+-   **PDF Preview**: View the generated report directly in the browser.
+
+## Setup & Local Development
+
+1.  **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
 
-## Running the Application
+2.  **Run the Application**:
+    ```bash
+    streamlit run app.py
+    ```
+    The UI will be available at `http://localhost:8501`.
 
-To start the Streamlit application, run the following command from within the `frontend/` directory:
+## Docker Setup
 
-```bash
-streamlit run app.py
-```
+To build and run the frontend using Docker:
 
-The application will typically open in your web browser at `http://localhost:8501`.
+1.  **Build the Image**:
+    ```bash
+    docker build -t image-search-frontend .
+    ```
+
+2.  **Run the Container**:
+    ```bash
+    docker run -p 8501:8501 -e BACKEND_URL="http://host.docker.internal:8000" image-search-frontend
+    ```
+    *Note: Use `http://host.docker.internal:8000` if your backend is running on the host machine (Mac/Windows). On Linux, use the host's IP address.*
 
 ## Configuration
 
-The frontend application communicates with the backend API. By default, it expects the backend to be running at `http://localhost:8000`. If your backend is running at a different address, you can configure it using the `BACKEND_URL` environment variable:
+The frontend connects to the backend API. You can configure the backend URL using the `BACKEND_URL` environment variable.
 
-```bash
-BACKEND_URL="http://your-backend-address:port" streamlit run app.py
-```
+-   **Default**: `http://localhost:8000`
+-   **Example**: `BACKEND_URL="http://api.example.com" streamlit run app.py`
