@@ -32,39 +32,68 @@ if page == "Create FAISS Index":
     st.write("Upload images to create a new FAISS index or update an existing one for a specific year.")
 
     year = st.number_input("Enter the year for the index:", min_value=2000, max_value=2100, value=2024, step=1)
-    uploaded_files = st.file_uploader("Choose images...", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
+    
+    # Initialize a key for the file uploader to allow clearing it
+    if "uploader_key" not in st.session_state:
+        st.session_state["uploader_key"] = 0
+
+    uploaded_files = st.file_uploader(
+        "Choose images...", 
+        type=["png", "jpg", "jpeg", "gif"], 
+        accept_multiple_files=True,
+        key=f"uploader_{st.session_state['uploader_key']}"
+    )
+
+    if st.button("Clear Uploaded Files"):
+        st.session_state["uploader_key"] += 1
+        st.rerun()
 
     col1, col2 = st.columns(2)
     
+    CHUNK_SIZE = 1000
+
+    def process_in_chunks(files, year, mode):
+        total_files = len(files)
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i in range(0, total_files, CHUNK_SIZE):
+            chunk = files[i:i + CHUNK_SIZE]
+            chunk_files = [("files", (file.name, file.getvalue(), file.type)) for file in chunk]
+            
+            # Determine endpoint: first chunk uses 'mode', subsequent chunks always use 'update'
+            current_mode = mode if i == 0 else "update"
+            endpoint = f"{BACKEND_URL}/index/{current_mode}?year={year}"
+            
+            status_text.text(f"Processing batch {i//CHUNK_SIZE + 1}... ({min(i + CHUNK_SIZE, total_files)}/{total_files})")
+            
+            try:
+                response = requests.post(endpoint, files=chunk_files, timeout=600)
+                if response.status_code not in [200, 201]:
+                    st.error(f"Failed at batch starting with file {i}: {response.text}")
+                    return False
+            except Exception as e:
+                st.error(f"Error during batch processing: {e}")
+                return False
+                
+            progress_bar.progress(min((i + CHUNK_SIZE) / total_files, 1.0))
+            
+        status_text.text("Indexing complete!")
+        return True
+
     with col1:
         if st.button("Create Index (Overwrite)"):
             if uploaded_files:
-                files = [("files", (file.name, file.getvalue(), file.type)) for file in uploaded_files]
-                
-                try:
-                    response = requests.post(f"{BACKEND_URL}/index/create?year={year}", files=files, timeout=300)
-                    if response.status_code == 201:
-                        st.success(f"FAISS index for year {year} created successfully!")
-                    else:
-                        st.error(f"Failed to create index: {response.text}")
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                if process_in_chunks(uploaded_files, year, "create"):
+                    st.success(f"FAISS index for year {year} created successfully with {len(uploaded_files)} images!")
             else:
                 st.warning("Please upload at least one image.")
 
     with col2:
         if st.button("Update Index (Append)"):
             if uploaded_files:
-                files = [("files", (file.name, file.getvalue(), file.type)) for file in uploaded_files]
-                
-                try:
-                    response = requests.post(f"{BACKEND_URL}/index/update?year={year}", files=files, timeout=300)
-                    if response.status_code == 200:
-                        st.success(f"FAISS index for year {year} updated successfully!")
-                    else:
-                        st.error(f"Failed to update index: {response.text}")
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                if process_in_chunks(uploaded_files, year, "update"):
+                    st.success(f"FAISS index for year {year} updated successfully with {len(uploaded_files)} images!")
             else:
                 st.warning("Please upload at least one image.")
 
@@ -122,8 +151,12 @@ elif page == "Generate Report":
             
             for i, res in enumerate(results):
                 with cols[i+1]:
-                    img_url = f"{BACKEND_URL}/data/images/indexed/{res['year']}/{res['filename']}"
-                    st.image(img_url, caption=f"Top {i+1} (Year: {res['year']}, Sim: {res['similarity']:.1f}%)", width='stretch')
+                    # Use base64 data from the response for the preview
+                    st.image(
+                        f"data:image/png;base64,{res['image_base64']}", 
+                        caption=f"Top {i+1} (Year: {res['year']}, Sim: {res['similarity']:.1f}%)", 
+                        use_container_width=True
+                    )
 
             st.subheader("Step 2: Generate PDF Report")
             
@@ -153,7 +186,12 @@ Please write the report in Korean at an expert level, using clear sections or ta
                 files = {"file": (st.session_state["query_image_name"], st.session_state["query_image_data"], st.session_state["query_image_type"])}
                 
                 # Send the exact search results shown in the preview to the backend
-                search_results_json = json.dumps(st.session_state["search_results"]["results"])
+                # Strip image_base64 to reduce request size since backend only needs filenames
+                stripped_results = [
+                    {k: v for k, v in res.items() if k != "image_base64"} 
+                    for res in st.session_state["search_results"]["results"]
+                ]
+                search_results_json = json.dumps(stripped_results)
                 data = {
                     "prompt": user_prompt,
                     "similar_images_json": search_results_json
