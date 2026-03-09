@@ -22,11 +22,10 @@ The application is configured to connect to a local [vLLM](https://github.com/vl
 │   └── __init__.py
 ├── data
 │   ├── assets
-│   ├── fonts
-│   │   └── NanumGothic-Regular.ttf
-│   ├── images
-│   │   ├── indexed
-│   │   └── query
+│   └── images
+│       └── indexed
+├── fonts
+│   └── NanumGothic-Regular.ttf
 ├── .env
 ├── requirements.txt
 └── README.md
@@ -56,7 +55,7 @@ VLM_BASE_URL="http://localhost:8000/v1"
 VLM_MODEL_NAME="Qwen/Qwen3-VL-8B-Instruct"
 
 # --- Asset Paths ---
-FONT_PATH="data/fonts/NanumGothic-Regular.ttf"
+FONT_PATH="fonts/NanumGothic-Regular.ttf"
 ```
 
 **For the OpenAI API:**
@@ -72,7 +71,7 @@ OPENAI_API_KEY="YOUR_OPENAI_API_KEY_HERE"
 # VLM_MODEL_NAME="Qwen/Qwen3-VL-8B-Instruct"
 
 # --- Asset Paths ---
-FONT_PATH="data/fonts/NanumGothic.ttf"
+FONT_PATH="fonts/NanumGothic-Regular.ttf"
 ```
 
 ### 3. Run the Application
