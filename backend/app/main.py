@@ -2,7 +2,7 @@ import os
 import shutil
 import json
 from typing import List, Optional
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -14,6 +14,14 @@ app = FastAPI(title="Image Similarity Search API")
 
 # Mount the data directory to serve indexed images
 app.mount("/data", StaticFiles(directory="data"), name="data")
+
+def remove_file(path: str):
+    """Helper function to remove a file from the filesystem."""
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        print(f"Error removing file {path}: {e}")
 
 def save_uploaded_images(files: List[UploadFile], year: int) -> List[str]:
     """Helper to save uploaded images to a year-specific directory."""
@@ -124,6 +132,7 @@ async def search_similar_images(years: List[int] = Query(...), file: UploadFile 
 
 @app.post("/report/generate")
 async def generate_analysis_report(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...), 
     prompt: Optional[str] = Form(None),
     similar_images_json: str = Form(...)
@@ -133,6 +142,7 @@ async def generate_analysis_report(
     - Uses images provided by the frontend.
     - Generates a summary with VLM.
     - Creates and returns a PDF file.
+    - Deletes temporary PDF after sending.
     """
     query_dir = os.path.join("data", "images", "query")
     os.makedirs(query_dir, exist_ok=True)
@@ -174,6 +184,9 @@ async def generate_analysis_report(
 
         vlm_summary = image_analysis_service.generate_vlm_summary(query_path, similar_paths, similarities, user_prompt=prompt)
         pdf_path = image_analysis_service.create_pdf_report(query_path, similar_paths, similarities, vlm_summary)
+        
+        # Schedule the PDF file for deletion after the response is sent
+        background_tasks.add_task(remove_file, pdf_path)
         
         return FileResponse(pdf_path, media_type='application/pdf', filename=os.path.basename(pdf_path))
     except HTTPException:
