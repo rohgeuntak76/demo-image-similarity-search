@@ -168,7 +168,7 @@ class ImageAnalysisService:
             response = client.chat.completions.create(
                 model=settings.VLM_MODEL_NAME,
                 messages=messages,
-                max_tokens=1500
+                # max_tokens=1500
             )
             return response.choices[0].message.content
         except Exception as e:

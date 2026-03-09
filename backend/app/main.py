@@ -1,14 +1,19 @@
 import os
 import shutil
+import json
 from typing import List, Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Form
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.services.image_analysis import image_analysis_service
 from app.models.schemas import SearchResponse, SearchResult
 from app.core.config import settings
 
 app = FastAPI(title="Image Similarity Search API")
+
+# Mount the data directory to serve indexed images
+app.mount("/data", StaticFiles(directory="data"), name="data")
 
 def save_uploaded_images(files: List[UploadFile], year: int) -> List[str]:
     """Helper to save uploaded images to a year-specific directory."""
@@ -97,7 +102,7 @@ async def search_similar_images(years: List[int] = Query(...), file: UploadFile 
             try:
                 similarities, similar_paths = image_analysis_service.search_similar(query_path, year)
                 for path, sim in zip(similar_paths, similarities):
-                    all_results.append(SearchResult(filename=os.path.basename(path), similarity=sim))
+                    all_results.append(SearchResult(filename=os.path.basename(path), similarity=sim, year=year))
             except FileNotFoundError as e:
                 # Log the error or handle it as appropriate, for now, we'll just skip this year
                 print(f"Skipping year {year} due to: {e}")
@@ -119,14 +124,14 @@ async def search_similar_images(years: List[int] = Query(...), file: UploadFile 
 
 @app.post("/report/generate")
 async def generate_analysis_report(
-    years: List[int] = Query(...), 
     file: UploadFile = File(...), 
-    prompt: Optional[str] = Form(None)
+    prompt: Optional[str] = Form(None),
+    similar_images_json: str = Form(...)
 ):
     """
-    Upload a query image to generate a full PDF analysis report.
-    - Finds similar images.
-    - Generates a summary with VLM (using optional prompt).
+    Generate a full PDF analysis report using specific search results.
+    - Uses images provided by the frontend.
+    - Generates a summary with VLM.
     - Creates and returns a PDF file.
     """
     query_dir = os.path.join("data", "images", "query")
@@ -137,26 +142,35 @@ async def generate_analysis_report(
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        all_results_raw = [] # Store raw (similarity, path) tuples
-        for year in years:
-            try:
-                similarities_year, similar_paths_year = image_analysis_service.search_similar(query_path, year)
-                for i in range(len(similarities_year)):
-                    all_results_raw.append((similarities_year[i], similar_paths_year[i]))
-            except FileNotFoundError as e:
-                print(f"Skipping year {year} for report generation due to: {e}")
-            except Exception as e:
-                print(f"Error searching year {year} for report generation: {e}")
-        
-        # Sort all collected results by similarity and get top 3
-        all_results_raw.sort(key=lambda x: x[0], reverse=True)
-        top_k_raw_results = all_results_raw[:3] # Assuming k=3
-        
-        if not top_k_raw_results:
-             raise HTTPException(status_code=404, detail="No similar images found in the specified years.")
+        # Parse the similar images provided by the frontend
+        try:
+            results_data = json.loads(similar_images_json)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid search results format: {e}")
 
-        similarities = [res[0] for res in top_k_raw_results]
-        similar_paths = [res[1] for res in top_k_raw_results]
+        if not results_data:
+             raise HTTPException(status_code=400, detail="No similar images provided.")
+
+        # Reconstruct paths and collect similarities
+        similarities = []
+        similar_paths = []
+        
+        for res in results_data:
+            filename = res.get("filename")
+            year = res.get("year")
+            similarity = res.get("similarity")
+            
+            if filename and year is not None:
+                # Reconstruct path based on year-specific directory structure
+                path = os.path.join(settings.INDEXED_IMAGE_DIR, str(year), filename)
+                if os.path.exists(path):
+                    similar_paths.append(path)
+                    similarities.append(similarity if similarity is not None else 0.0)
+                else:
+                    print(f"Warning: Image path not found: {path}")
+
+        if not similar_paths:
+            raise HTTPException(status_code=404, detail="None of the specified similar images were found on the server.")
 
         vlm_summary = image_analysis_service.generate_vlm_summary(query_path, similar_paths, similarities, user_prompt=prompt)
         pdf_path = image_analysis_service.create_pdf_report(query_path, similar_paths, similarities, vlm_summary)
@@ -164,8 +178,6 @@ async def generate_analysis_report(
         return FileResponse(pdf_path, media_type='application/pdf', filename=os.path.basename(pdf_path))
     except HTTPException:
         raise
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {e}")
     finally:
