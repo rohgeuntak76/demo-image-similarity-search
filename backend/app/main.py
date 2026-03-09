@@ -1,7 +1,7 @@
 import os
 import shutil
-from typing import List
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from typing import List, Optional
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Form
 from fastapi.responses import FileResponse
 
 from app.services.image_analysis import image_analysis_service
@@ -61,6 +61,23 @@ async def update_index(year: int, files: List[UploadFile] = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update index: {e}")
 
+@app.get("/index/available", response_model=List[int])
+async def get_available_indices():
+    """
+    Return a list of years for which a FAISS index has been created.
+    """
+    if not os.path.exists(settings.BASE_INDEX_DIR):
+        return []
+    
+    years = []
+    for entry in os.listdir(settings.BASE_INDEX_DIR):
+        if os.path.isdir(os.path.join(settings.BASE_INDEX_DIR, entry)) and entry.isdigit():
+            # Check if index.faiss exists in the directory
+            if os.path.exists(os.path.join(settings.BASE_INDEX_DIR, entry, "index.faiss")):
+                years.append(int(entry))
+    
+    return sorted(years)
+
 @app.post("/search", response_model=SearchResponse)
 async def search_similar_images(years: List[int] = Query(...), file: UploadFile = File(...)):
     """
@@ -96,13 +113,20 @@ async def search_similar_images(years: List[int] = Query(...), file: UploadFile 
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to perform search: {e}")
+    finally:
+        if os.path.exists(query_path):
+            os.remove(query_path)
 
-@app.post("/generate-report")
-async def generate_analysis_report(years: List[int] = Query(...), file: UploadFile = File(...)):
+@app.post("/report/generate")
+async def generate_analysis_report(
+    years: List[int] = Query(...), 
+    file: UploadFile = File(...), 
+    prompt: Optional[str] = Form(None)
+):
     """
     Upload a query image to generate a full PDF analysis report.
     - Finds similar images.
-    - Generates a summary with OpenAI's GPT-4o.
+    - Generates a summary with VLM (using optional prompt).
     - Creates and returns a PDF file.
     """
     query_dir = os.path.join("data", "images", "query")
@@ -128,17 +152,25 @@ async def generate_analysis_report(years: List[int] = Query(...), file: UploadFi
         all_results_raw.sort(key=lambda x: x[0], reverse=True)
         top_k_raw_results = all_results_raw[:3] # Assuming k=3
         
+        if not top_k_raw_results:
+             raise HTTPException(status_code=404, detail="No similar images found in the specified years.")
+
         similarities = [res[0] for res in top_k_raw_results]
         similar_paths = [res[1] for res in top_k_raw_results]
 
-        gpt_summary = image_analysis_service.generate_gpt_summary(query_path, similar_paths, similarities)
-        pdf_path = image_analysis_service.create_pdf_report(query_path, similar_paths, similarities, gpt_summary)
+        vlm_summary = image_analysis_service.generate_vlm_summary(query_path, similar_paths, similarities, user_prompt=prompt)
+        pdf_path = image_analysis_service.create_pdf_report(query_path, similar_paths, similarities, vlm_summary)
         
         return FileResponse(pdf_path, media_type='application/pdf', filename=os.path.basename(pdf_path))
+    except HTTPException:
+        raise
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {e}")
+    finally:
+        if os.path.exists(query_path):
+            os.remove(query_path)
 
 @app.get("/")
 def read_root():

@@ -121,21 +121,25 @@ class ImageAnalysisService:
         
         return similarity_percent, similar_paths
 
-    def generate_gpt_summary(self, query_path: str, similar_paths: List[str], similarities: List[float]) -> str:
-        summary_prompt = f"""
-        Analyze the following weather chart images to create a structured report.
+    def generate_vlm_summary(self, query_path: str, similar_paths: List[str], similarities: List[float], user_prompt: str = None) -> str:
+        if user_prompt:
+            summary_prompt = user_prompt
+        else:
+            query_filename = os.path.basename(query_path)
+            summary_prompt = f"""
+            Analyze the following weather chart images to create a structured report.
 
-        1.  Summarize the key weather features of the [Query Image (2025)].
-        2.  For each of the [Top-3 Similar Weather Charts], describe its main features, its similarities and differences compared to the query image, and its similarity score (%).
-            - Top 1 Similarity: {similarities[0]:.1f}%
-            - Top 2 Similarity: {similarities[1]:.1f}%
-            - Top 3 Similarity: {similarities[2]:.1f}%
-        3.  Provide a comprehensive comparison of all four images, highlighting common patterns and notable differences.
-        4.  Explain the meteorological basis for the high similarity.
-        5.  Include any other relevant observations.
+            1.  Summarize the key weather features of the [Query Image ({query_filename})].
+            2.  For each of the [Top-3 Similar Weather Charts], describe its main features, its similarities and differences compared to the query image, and its similarity score (%).
+                - Top 1 Similarity: {similarities[0]:.1f}%
+                - Top 2 Similarity: {similarities[1]:.1f}%
+                - Top 3 Similarity: {similarities[2]:.1f}%
+            3.  Provide a comprehensive comparison of all four images, highlighting common patterns and notable differences.
+            4.  Explain the meteorological basis for the high similarity.
+            5.  Include any other relevant observations.
 
-        Please write the report in Korean at an expert level, using clear sections or tables.
-        """
+            Please write the report in Korean at an expert level, using clear sections or tables.
+            """
 
         def image_to_base64(image_path):
             img = Image.open(image_path).convert("RGB")
@@ -170,7 +174,7 @@ class ImageAnalysisService:
         except Exception as e:
             return f"Failed to generate VLM summary: {e}"
 
-    def create_pdf_report(self, query_path: str, similar_paths: List[str], similarities: List[float], gpt_summary: str) -> str:
+    def create_pdf_report(self, query_path: str, similar_paths: List[str], similarities: List[float], vlm_summary: str) -> str:
         
         class PDF_Korean(FPDF):
             def __init__(self):
@@ -196,7 +200,7 @@ class ImageAnalysisService:
             pdf.ln(4)
 
         pdf.set_font("Nanum", size=12)
-        pdf.multi_cell(0, 10, "GPT Analysis:\n" + gpt_summary)
+        pdf.multi_cell(0, 10, "VLM Analysis:\n" + vlm_summary)
 
         pdf_filename = f"report_{os.path.basename(query_path).split('.')[0]}.pdf"
         pdf_path = os.path.join("data", pdf_filename)

@@ -93,8 +93,12 @@ Access the interactive API documentation at `http://127.0.0.1:8000/docs`.
     *   **Parameters**: `year` (query parameter, integer) - The year for which to create the index.
 -   **`POST /index/update`**: Appends uploaded images into an existing FAISS index for a specific year.
     *   **Parameters**: `year` (query parameter, integer) - The year for which to update the index.
+-   **`GET /index/available`**: Returns a list of years for which indices have been created.
 -   **`POST /search`**: Upload a query image to find the top 3 most similar images across specified years.
     *   **Parameters**: `years` (query parameter, list of integers) - The years to search within.
--   **`POST /generate-report`**: Upload a query image to generate a PDF analysis report using the configured VLM, searching across specified years.
-    *   **Parameters**: `years` (query parameter, list of integers) - The years to include in the search for the report.
+-   **`POST /report/generate`**: Upload a query image to generate a PDF analysis report using the configured VLM, searching across specified years.
+    *   **Parameters**: 
+        *   `years` (query parameter, list of integers) - The years to include in the search.
+        *   `file` (multipart form-data) - The query image file.
+        *   `prompt` (multipart form-data, optional) - Custom prompt for the VLM analysis.
 
