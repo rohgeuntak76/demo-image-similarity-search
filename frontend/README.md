@@ -19,28 +19,34 @@ This is a Streamlit-based web interface for the Image Similarity Search API. It 
 
 2.  **Run the Application**:
     ```bash
-    streamlit run app.py
-    ```
-    The UI will be available at `http://localhost:8501`.
+    ## Features
 
-## Docker Setup
+    -   **Branded UI**: Customizable logo support via environment variables.
+    -   **FAISS Index Management**: Create or update image search indexes for specific years.
+    ...
+    ## Docker Setup
 
-To build and run the frontend using Docker:
+    To build and run the frontend using Docker:
 
-1.  **Build the Image**:
-    ```bash
-    docker build -t image-search-frontend .
-    ```
+    1.  **Build the Image**:
+        ```bash
+        docker build -t image-search-frontend .
+        ```
 
-2.  **Run the Container**:
-    ```bash
-    docker run -p 8501:8501 -e BACKEND_URL="http://host.docker.internal:8000" image-search-frontend
-    ```
-    *Note: Use `http://host.docker.internal:8000` if your backend is running on the host machine (Mac/Windows). On Linux, use the host's IP address.*
+    2.  **Run the Container**:
+        ```bash
+        docker run -p 8501:8501 \
+          -e BACKEND_URL="http://host.docker.internal:8000" \
+          -e LOGO_PATH="/app/logo/my_logo.png" \
+          -v /path/to/your/logo:/app/logo \
+          image-search-frontend
+        ```
+        *Note: Use `http://host.docker.internal:8000` if your backend is running on the host machine (Mac/Windows). On Linux, use the host's IP address.*
 
-## Configuration
+    ## Configuration
 
-The frontend connects to the backend API. You can configure the backend URL using the `BACKEND_URL` environment variable.
+    The frontend connects to the backend API. You can configure the backend URL and UI assets using environment variables.
 
--   **Default**: `http://localhost:8000`
--   **Example**: `BACKEND_URL="http://api.example.com" streamlit run app.py`
+    -   **`BACKEND_URL`**: URL of the backend API. (Default: `http://localhost:8000`)
+    -   **`LOGO_PATH`**: File path to the logo image. (Default: `./logo/logo.png`)
+

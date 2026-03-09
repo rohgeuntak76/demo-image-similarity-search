@@ -6,9 +6,20 @@ import base64
 
 # Configuration for the backend API
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+LOGO_PATH = os.getenv("LOGO_PATH", "./logo/logo.png")
 
 st.set_page_config(page_title="Image Similarity Search UI", layout="wide")
-
+st.logo(image=LOGO_PATH,size="large")
+st.markdown(
+    """
+    <style>
+        [alt=Logo] {
+            height: 3.5rem; /* Adjust size here */
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 st.title("Image Similarity Search Dashboard")
 
 # --- Sidebar Navigation ---
