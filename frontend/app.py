@@ -155,7 +155,7 @@ elif page == "Generate Report":
                     st.image(
                         f"data:image/png;base64,{res['image_base64']}", 
                         caption=f"Top {i+1} (Year: {res['year']}, Sim: {res['similarity']:.1f}%)", 
-                        use_container_width=True
+                        width='content'
                     )
 
             st.subheader("Step 2: Generate PDF Report")
