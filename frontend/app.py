@@ -167,18 +167,29 @@ elif page == "Generate Report":
             # Fill with 0 if fewer than 3 results for safe formatting
             sim_scores = sims + [0.0] * (3 - len(sims))
             
-            default_prompt = f"""Analyze the following weather chart images to create a structured report.
+            default_prompt = f"""
+Analyze the following weather chart images and create a structured meteorological report.
 
-1.  Summarize the key weather features of the [Query Image ({query_name})].
-2.  For each of the [Top-3 Similar Weather Charts], describe its main features, its similarities and differences compared to the query image, and its similarity score (%).
-    - Top 1 Similarity: {sim_scores[0]:.1f}%
-    - Top 2 Similarity: {sim_scores[1]:.1f}%
-    - Top 3 Similarity: {sim_scores[2]:.1f}%
-3.  Provide a comprehensive comparison of all four images, highlighting common patterns and notable differences.
-4.  Explain the meteorological basis for the high similarity.
-5.  Include any other relevant observations.
+### 1. Query Image Summary
+Summarize the key weather features of the query image ({query_name}).
 
-Please write the report in Korean at an expert level, using clear sections or tables."""
+### 2. Top-3 Similar Weather Charts Analysis
+For each retrieved chart, describe its main features, similarities, and differences compared to the query image. Reference these similarity scores:
+- Top 1 Similarity: {sim_scores[0]:.1f}%
+- Top 2 Similarity: {sim_scores[1]:.1f}%
+- Top 3 Similarity: {sim_scores[2]:.1f}%
+
+### 3. Comprehensive Analysis
+Comprehensively compare the four images and explain the overall  similarities and differences. Describe overall similarity and overall differences only
+
+### 4. Meteorological Interpretation
+Explain the meteorological Interpretation for the high similarity among these charts.
+
+### 5. Other Notes
+Provide any other Relevant observations to complement the report
+
+Please write the report entirely in Korean at an expert level.
+            """
 
             user_prompt = st.text_area("VLM Analysis Prompt:", value=default_prompt, height=400)
 
