@@ -1,20 +1,21 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim-buster
+# Use a more modern Python base image
+FROM python:3.10-slim
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Install system dependencies for WeasyPrint and FAISS
+# Using a cleaner list compatible with modern Debian (Bookworm)
 RUN apt-get update && apt-get install -y \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libharfbuzz0b \
-    libpango1.0-0 \
     libcairo2 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libffi-dev \
     shared-mime-info \
     fontconfig \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install any needed packages specified in requirements.txt
