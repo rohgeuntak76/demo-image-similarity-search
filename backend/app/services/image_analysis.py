@@ -130,22 +130,22 @@ class ImageAnalysisService:
         query_filename = os.path.basename(query_path)
         
         system_prompt = """
-           You are a senior meteorologist and an expert in synoptic weather chart analysis. Your primary role is to analyze, compare, and interpret complex meteorological data from weather charts (such as surface pressure maps, isobaric charts, and frontal analyses).
-           When analyzing these images, you must adhere strictly to the following scientific and formatting guidelines:
-           1. **Analytical Depth:**
-           - Explicitly identify key synoptic features: High (H) and Low (L) pressure centers, pressure gradients (isobar spacing), and prevailing wind directions.
-           - Locate and classify frontal boundaries (cold, warm, stationary, or occluded fronts).
-           - Recognize macro-weather patterns, especially those relevant to the East Asian region (e.g., Siberian High expansion, North Pacific High, Changma/monsoon fronts, or typhoons).
-           2. **Comparative Logic:**
-           - When comparing a query image to historical/similar images, focus on the structural alignment of pressure systems and fronts.
-           - Explain *why* the retrieval algorithm flagged them as similar based on actual atmospheric physics, not just visual pixel overlap.
-           3. **Tone and Language:**
-           - Your tone must be highly objective, academic, and professional.
-           - **Crucial:** You must generate the entire final response in expert-level Korean (기상청 및 대기과학 전공자 수준의 전문 용어 사용).
-           4. **Formatting Strictness:**
-           - You are strictly bound to output in pure Markdown.
-           - Never use raw HTML tags.
-           - Always use Markdown tables (`|---|---|`) for comparing multiple data points or images.
+        You are a senior meteorologist and an expert in synoptic weather chart analysis. Your primary role is to analyze, compare, and interpret complex meteorological data from weather charts (such as surface pressure maps, isobaric charts, and frontal analyses).
+        When analyzing these images, you must adhere strictly to the following scientific and formatting guidelines:
+        1. **Analytical Depth:**
+        - Explicitly identify key synoptic features: High (H) and Low (L) pressure centers, pressure gradients (isobar spacing), and prevailing wind directions.
+        - Locate and classify frontal boundaries (cold, warm, stationary, or occluded fronts).
+        - Recognize macro-weather patterns, especially those relevant to the East Asian region (e.g., Siberian High expansion, North Pacific High, Changma/monsoon fronts, or typhoons).
+        2. **Comparative Logic:**
+        - When comparing a query image to historical/similar images, focus on the structural alignment of pressure systems and fronts.
+        - Explain *why* the retrieval algorithm flagged them as similar based on actual atmospheric physics, not just visual pixel overlap.
+        3. **Tone and Language:**
+        - Your tone must be highly objective, academic, and professional.
+        - **Crucial:** You must generate the entire final response in expert-level Korean (기상청 및 대기과학 전공자 수준의 전문 용어 사용).
+        4. **Formatting Strictness:**
+        - You are strictly bound to output in pure Markdown. 
+        - Use Markdown headers (###), bullet points (-), bold text (**text**), and Markdown tables (| Column | Column |).
+        - CRITICAL: Output the raw Markdown directly. Do NOT wrap your response in ```markdown ... ``` code blocks.
         """
 
         if user_prompt:
@@ -191,7 +191,11 @@ class ImageAnalysisService:
         
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.VLM_BASE_URL)
         try:
-            response = client.chat.completions.create(model=settings.VLM_MODEL_NAME, messages=messages)
+            response = client.chat.completions.create(
+                model=settings.VLM_MODEL_NAME,
+                messages=messages,
+                max_tokens=16384
+            )
             return response.choices[0].message.content
         except Exception as e:
             return f"Failed to generate VLM summary: {e}"
@@ -218,23 +222,32 @@ class ImageAnalysisService:
                 @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap');
                 body {{ font-family: 'Nanum Gothic', sans-serif; line-height: 1.6; color: #333; margin: 30px; }}
                 h1, h2, h3 {{ color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-                .header-img {{ max-width: 400px; margin-bottom: 20px; }}
-                .image-container {{ display: flex; gap: 15px; margin-bottom: 30px; }}
-                .image-box {{ border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; width: 30%; }}
-                .image-box img {{ max-width: 100%; height: auto; }}
+                .header-img {{ width: 60%; max-width: 600px; margin-bottom: 10px; display: block; }}
+                .image-container {{ display: flex; flex-wrap: wrap; gap: 2%; margin-bottom: 30px; }}
+                .image-box {{ border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; width: 48%; margin-bottom: 15px; page-break-inside: avoid; box-sizing: border-box; }}
+                .image-box img {{ max-width: 100%; height: auto; display: block; margin: 0 auto; }}
                 table {{ width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 14px; }}
                 th, td {{ border: 1px solid #bdc3c7; padding: 10px; text-align: left; }}
                 th {{ background-color: #ecf0f1; font-weight: bold; }}
+                /* --- PDF Pagination Rules --- */
+                .keep-together {{ page-break-inside: avoid; break-inside: avoid; }}
+                .vlm-section {{ page-break-before: always; break-before: page; }} /* Pushes VLM to the next page */
             </style>
         </head>
         <body>
-            <h1 style="text-align: center; border-bottom: none;">Similar Weather Chart Analysis Report</h1>
-            <h2>[Query Image] {os.path.basename(query_path)}</h2>
-            <img class="header-img" src="{query_uri}">
-            <h2>Retrieved Similar Charts</h2>
-            <div class="image-container">{similar_images_html}</div>
-            <h2>VLM Analysis</h2>
-            <div class="vlm-content">{html_content}</div>
+            <div class="keep-together">
+                <h1 style="text-align: center; border-bottom: none;">유사 일기도 이미지 구조화 자동 보고서</h1>
+                
+                <h3>[쿼리 이미지] {os.path.basename(query_path)}</h3>
+                <img class="header-img" src="{query_uri}">
+                
+                <h3>Top 3 Similar Charts</h3>
+                <div class="image-container">{similar_images_html}</div>
+            </div>
+            <div class="vlm-section">
+                    <h3>VLM Analysis - {settings.VLM_MODEL_NAME}</h3>
+                    <div class="vlm-content">{html_content}</div>
+            </div>
         </body>
         </html>"""
 
