@@ -194,7 +194,8 @@ class ImageAnalysisService:
             response = client.chat.completions.create(
                 model=settings.VLM_MODEL_NAME,
                 messages=messages,
-                max_tokens=16384
+                max_tokens=16384,
+                temperature=0
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -204,6 +205,10 @@ class ImageAnalysisService:
         html_content = markdown.markdown(vlm_summary, extensions=['tables'])
         query_uri = f"file://{os.path.abspath(query_path)}"
         
+        # Define absolute paths for local fonts
+        font_regular = f"file://{os.path.abspath('fonts/NanumGothic-Regular.ttf')}"
+        font_bold = f"file://{os.path.abspath('fonts/NanumGothic-Bold.ttf')}"
+
         similar_images_html = ""
         for i, (path, sim) in enumerate(zip(similar_paths, similarities)):
             img_uri = f"file://{os.path.abspath(path)}"
@@ -219,13 +224,24 @@ class ImageAnalysisService:
         <head>
             <meta charset="UTF-8">
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap');
-                body {{ font-family: 'Nanum Gothic', sans-serif; line-height: 1.6; color: #333; margin: 30px; }}
+                @font-face {{
+                    font-family: 'NanumGothic';
+                    src: url('{font_regular}');
+                    font-weight: normal;
+                    font-style: normal;
+                }}
+                @font-face {{
+                    font-family: 'NanumGothic';
+                    src: url('{font_bold}');
+                    font-weight: bold;
+                    font-style: normal;
+                }}
+                body {{ font-family: 'NanumGothic', sans-serif; line-height: 1.6; color: #333; margin: 30px; }}
                 h1, h2, h3 {{ color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-                .header-img {{ width: 60%; max-width: 600px; margin-bottom: 10px; display: block; }}
+                .header-img {{ width: 70%; max-width: 600px; margin-bottom: 10px; display: block; }}
                 .image-container {{ display: flex; flex-wrap: wrap; gap: 2%; margin-bottom: 30px; }}
                 .image-box {{ border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; width: 48%; margin-bottom: 15px; page-break-inside: avoid; box-sizing: border-box; }}
-                .image-box img {{ max-width: 100%; height: auto; display: block; margin: 0 auto; }}
+                .image-box img {{ max-width: 100%; max-height: 250px; display: block; margin: 0 auto; }}
                 table {{ width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 14px; }}
                 th, td {{ border: 1px solid #bdc3c7; padding: 10px; text-align: left; }}
                 th {{ background-color: #ecf0f1; font-weight: bold; }}
@@ -250,7 +266,7 @@ class ImageAnalysisService:
             </div>
         </body>
         </html>"""
-
+        # print(full_html)
         pdf_filename = f"report_{os.path.basename(query_path).split('.')[0]}.pdf"
         os.makedirs("data", exist_ok=True)
         pdf_path = os.path.join("data", pdf_filename)
