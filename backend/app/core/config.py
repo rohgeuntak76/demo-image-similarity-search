@@ -12,8 +12,10 @@ class Settings(BaseSettings):
 
     # File paths and directories
     FONT_PATH: str = "fonts/NanumGothic-Regular.ttf"
+    FONT_BOLD_PATH: str = "fonts/NanumGothic-Bold.ttf"
     BASE_INDEX_DIR: str = "data/assets"
     INDEXED_IMAGE_DIR: str = "data/images/indexed"
+
 
     class Config:
         env_file = ".env"

@@ -5,7 +5,8 @@ import faiss
 import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
-from fpdf import FPDF
+import markdown
+from weasyprint import HTML
 import openai
 import base64
 from io import BytesIO
@@ -20,7 +21,6 @@ class ImageAnalysisService:
         self.model = self._load_model()
         
         # Ensure data directories exist
-        # os.makedirs(os.path.dirname(settings.INDEX_PATH), exist_ok=True) # No longer needed, year-specific directories are created in create_index
         os.makedirs(settings.INDEXED_IMAGE_DIR, exist_ok=True)
 
     def _get_transform(self):
@@ -56,7 +56,7 @@ class ImageAnalysisService:
         
         # Construct paths with year-specific directory
         year_index_dir = os.path.join(settings.BASE_INDEX_DIR, str(year))
-        os.makedirs(year_index_dir, exist_ok=True) # Ensure year directory exists
+        os.makedirs(year_index_dir, exist_ok=True) 
 
         index_file_path = os.path.join(year_index_dir, f"index.faiss")
         embeddings_file_path = os.path.join(year_index_dir, f"embeddings.npy")
@@ -116,7 +116,6 @@ class ImageAnalysisService:
         
         max_dist = np.max(distances)
         similarity_percent = [100 * (1 - (d / max_dist)) for d in distances[0]]
-        
         similar_paths = [names[idx] for idx in indices[0]]
         
         return similarity_percent, similar_paths
@@ -128,29 +127,59 @@ class ImageAnalysisService:
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
     def generate_vlm_summary(self, query_path: str, similar_paths: List[str], similarities: List[float], user_prompt: str = None) -> str:
+        query_filename = os.path.basename(query_path)
+        
+        system_prompt = """
+           You are a senior meteorologist and an expert in synoptic weather chart analysis. Your primary role is to analyze, compare, and interpret complex meteorological data from weather charts (such as surface pressure maps, isobaric charts, and frontal analyses).
+           When analyzing these images, you must adhere strictly to the following scientific and formatting guidelines:
+           1. **Analytical Depth:**
+           - Explicitly identify key synoptic features: High (H) and Low (L) pressure centers, pressure gradients (isobar spacing), and prevailing wind directions.
+           - Locate and classify frontal boundaries (cold, warm, stationary, or occluded fronts).
+           - Recognize macro-weather patterns, especially those relevant to the East Asian region (e.g., Siberian High expansion, North Pacific High, Changma/monsoon fronts, or typhoons).
+           2. **Comparative Logic:**
+           - When comparing a query image to historical/similar images, focus on the structural alignment of pressure systems and fronts.
+           - Explain *why* the retrieval algorithm flagged them as similar based on actual atmospheric physics, not just visual pixel overlap.
+           3. **Tone and Language:**
+           - Your tone must be highly objective, academic, and professional.
+           - **Crucial:** You must generate the entire final response in expert-level Korean (기상청 및 대기과학 전공자 수준의 전문 용어 사용).
+           4. **Formatting Strictness:**
+           - You are strictly bound to output in pure Markdown.
+           - Never use raw HTML tags.
+           - Always use Markdown tables (`|---|---|`) for comparing multiple data points or images.
+        """
+
         if user_prompt:
             summary_prompt = user_prompt
         else:
-            query_filename = os.path.basename(query_path)
             summary_prompt = f"""
-            Analyze the following weather chart images to create a structured report.
+            Analyze the following weather chart images and create a structured meteorological report.
 
-            1.  Summarize the key weather features of the [Query Image ({query_filename})].
-            2.  For each of the [Top-3 Similar Weather Charts], describe its main features, its similarities and differences compared to the query image, and its similarity score (%).
-                - Top 1 Similarity: {similarities[0]:.1f}%
-                - Top 2 Similarity: {similarities[1]:.1f}%
-                - Top 3 Similarity: {similarities[2]:.1f}%
-            3.  Provide a comprehensive comparison of all four images, highlighting common patterns and notable differences.
-            4.  Explain the meteorological basis for the high similarity.
-            5.  Include any other relevant observations.
+            ### 1. Query Image Summary
+            Summarize the key weather features of the query image ({query_filename}).
 
-            Please write the report in Korean at an expert level, using clear sections or tables.
+            ### 2. Top-3 Similar Weather Charts Analysis
+            For each retrieved chart, describe its main features, similarities, and differences compared to the query image. Reference these similarity scores:
+            - Top 1 Similarity: {similarities[0]:.1f}%
+            - Top 2 Similarity: {similarities[1]:.1f}%
+            - Top 3 Similarity: {similarities[2]:.1f}%
+
+            ### 3. Comprehensive Comparison
+            Provide a comparison of all four images, highlighting common patterns and notable differences. **Please use a Markdown table** to summarize the key comparative metrics.
+
+            ### 4. Meteorological Basis
+            Explain the meteorological basis for the high similarity among these charts.
+
+            ### 5. Additional Relevant Observations
+            Provide any other Relevant observations to complement the report
+
+            Please write the report entirely in Korean at an expert level.
             """
 
         query_img_b64 = self.image_to_base64(query_path)
         similar_imgs_b64 = [self.image_to_base64(p) for p in similar_paths]
 
         messages = [
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": [
@@ -160,51 +189,59 @@ class ImageAnalysisService:
             }
         ]
         
-        client = openai.OpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.VLM_BASE_URL,
-        )
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.VLM_BASE_URL)
         try:
-            response = client.chat.completions.create(
-                model=settings.VLM_MODEL_NAME,
-                messages=messages,
-                # max_tokens=1500
-            )
+            response = client.chat.completions.create(model=settings.VLM_MODEL_NAME, messages=messages)
             return response.choices[0].message.content
         except Exception as e:
             return f"Failed to generate VLM summary: {e}"
 
     def create_pdf_report(self, query_path: str, similar_paths: List[str], similarities: List[float], vlm_summary: str) -> str:
+        html_content = markdown.markdown(vlm_summary, extensions=['tables'])
+        query_uri = f"file://{os.path.abspath(query_path)}"
         
-        class PDF_Korean(FPDF):
-            def __init__(self):
-                super().__init__()
-                self.add_font("Nanum", "", settings.FONT_PATH, uni=True)
-                self.set_font("Nanum", size=14)
-            def header(self):
-                self.set_font("Nanum", size=18)
-                self.cell(0, 15, "Similar Weather Chart Analysis Report", ln=True, align='C')
-                self.ln(5)
+        similar_images_html = ""
+        for i, (path, sim) in enumerate(zip(similar_paths, similarities)):
+            img_uri = f"file://{os.path.abspath(path)}"
+            similar_images_html += f"""
+            <div class="image-box">
+                <h4>Top {i+1} (Similarity: {sim:.1f}%)</h4>
+                <img src="{img_uri}" alt="Similar Image {i+1}">
+            </div>"""
 
-        pdf = PDF_Korean()
-        pdf.add_page()
-        
-        pdf.set_font("Nanum", size=13)
-        pdf.cell(0, 10, f"[Query Image] {os.path.basename(query_path)}", ln=True)
-        pdf.image(query_path, w=90)
-        pdf.ln(6)
-
-        for i, path in enumerate(similar_paths):
-            pdf.cell(0, 10, f"[Top {i+1}] {os.path.basename(path)} (Similarity: {similarities[i]:.1f}%)", ln=True)
-            pdf.image(path, w=90)
-            pdf.ln(4)
-
-        pdf.set_font("Nanum", size=12)
-        pdf.multi_cell(0, 10, "VLM Analysis:\n" + vlm_summary)
+        full_html = f"""
+        <!DOCTYPE html>
+        <html lang="ko">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap');
+                body {{ font-family: 'Nanum Gothic', sans-serif; line-height: 1.6; color: #333; margin: 30px; }}
+                h1, h2, h3 {{ color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
+                .header-img {{ max-width: 400px; margin-bottom: 20px; }}
+                .image-container {{ display: flex; gap: 15px; margin-bottom: 30px; }}
+                .image-box {{ border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; width: 30%; }}
+                .image-box img {{ max-width: 100%; height: auto; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 14px; }}
+                th, td {{ border: 1px solid #bdc3c7; padding: 10px; text-align: left; }}
+                th {{ background-color: #ecf0f1; font-weight: bold; }}
+            </style>
+        </head>
+        <body>
+            <h1 style="text-align: center; border-bottom: none;">Similar Weather Chart Analysis Report</h1>
+            <h2>[Query Image] {os.path.basename(query_path)}</h2>
+            <img class="header-img" src="{query_uri}">
+            <h2>Retrieved Similar Charts</h2>
+            <div class="image-container">{similar_images_html}</div>
+            <h2>VLM Analysis</h2>
+            <div class="vlm-content">{html_content}</div>
+        </body>
+        </html>"""
 
         pdf_filename = f"report_{os.path.basename(query_path).split('.')[0]}.pdf"
+        os.makedirs("data", exist_ok=True)
         pdf_path = os.path.join("data", pdf_filename)
-        pdf.output(pdf_path)
+        HTML(string=full_html).write_pdf(pdf_path)
         return pdf_path
 
 image_analysis_service = ImageAnalysisService()
